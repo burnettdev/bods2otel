@@ -208,7 +208,7 @@ func (p *Pipeline) handleDryRun(ctx context.Context, data *types.ParsedBusData) 
 
 	// Show individual log lines as they would be sent to OTel
 	for i, vehicle := range data.VehicleData {
-		// Create individual vehicle log entry (same format as Loki client)
+		// Create individual vehicle log entry
 		vehicleLog := map[string]interface{}{
 			"timestamp":                      data.Timestamp,
 			"line_ref":                       data.LineRef,
@@ -225,7 +225,6 @@ func (p *Pipeline) handleDryRun(ctx context.Context, data *types.ParsedBusData) 
 			"latitude":                       vehicle.Latitude,
 			"recorded_at_time":               vehicle.RecordedAtTime,
 			"valid_until_time":               vehicle.ValidUntilTime,
-			"bus_image":                      vehicle.BusImage,
 		}
 
 		// Convert vehicle to JSON

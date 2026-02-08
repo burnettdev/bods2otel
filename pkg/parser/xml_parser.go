@@ -16,14 +16,12 @@ import (
 )
 
 type XMLParser struct {
-	tracer         trace.Tracer
-	imageGenerator *BusImageGenerator
+	tracer trace.Tracer
 }
 
 func NewXMLParser() *XMLParser {
 	return &XMLParser{
-		tracer:         otel.Tracer("xml-parser"),
-		imageGenerator: NewBusImageGenerator(),
+		tracer: otel.Tracer("xml-parser"),
 	}
 }
 
@@ -191,9 +189,6 @@ func (p *XMLParser) parseVehicleActivity(activity map[string]interface{}) *types
 			}
 		}
 	}
-
-	// Generate bus image with line number and direction
-	vehicle.BusImage = p.imageGenerator.GenerateCompactBusImage(vehicle.LineRef, vehicle.DirectionRef)
 
 	return vehicle
 }

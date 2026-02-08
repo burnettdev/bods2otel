@@ -22,5 +22,4 @@ type VehicleActivity struct {
 	Latitude                    float64 `json:"latitude"`
 	RecordedAtTime              string  `json:"recorded_at_time"`
 	ValidUntilTime              string  `json:"valid_until_time"`
-	BusImage                    string  `json:"bus_image"`
 }
