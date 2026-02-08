@@ -9,7 +9,7 @@ import (
 	"strconv"
 	"time"
 
-	"bods2loki/pkg/types"
+	"bods2otel/pkg/types"
 
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	"go.opentelemetry.io/otel"
@@ -102,7 +102,7 @@ func (c *Client) SendBusData(ctx context.Context, data *types.ParsedBusData) err
 		Streams: []Stream{
 			{
 				Stream: map[string]string{
-					"job":      "bods2loki",
+					"job":      "bods2otel",
 					"service":  "bus-tracking",
 					"line_ref": data.LineRef,
 				},
@@ -127,7 +127,7 @@ func (c *Client) SendBusData(ctx context.Context, data *types.ParsedBusData) err
 	}
 
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("User-Agent", "bods2loki/1.0.0")
+	req.Header.Set("User-Agent", "bods2otel/1.0.0")
 
 	// Add basic authentication if credentials are provided
 	if c.username != "" && c.password != "" {

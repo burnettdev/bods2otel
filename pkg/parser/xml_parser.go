@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"strings"
 
-	"bods2loki/pkg/bods"
-	"bods2loki/pkg/types"
+	"bods2otel/pkg/bods"
+	"bods2otel/pkg/types"
 
 	"github.com/clbanning/mxj/v2"
 	"go.opentelemetry.io/otel"

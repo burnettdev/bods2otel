@@ -71,7 +71,7 @@ func (c *Client) FetchBusData(ctx context.Context, lineRef string) (*BusData, er
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
 
-	req.Header.Set("User-Agent", "bods2loki/1.0.0")
+	req.Header.Set("User-Agent", "bods2otel/1.0.0")
 	req.Header.Set("Accept", "*/*")
 
 	// Make request
