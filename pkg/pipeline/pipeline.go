@@ -4,36 +4,34 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
 	"time"
 
-	"bods2loki/pkg/bods"
-	"bods2loki/pkg/loki"
-	"bods2loki/pkg/parser"
-	"bods2loki/pkg/types"
+	"github.com/burnettdev/bods2otel/pkg/bods"
+	"github.com/burnettdev/bods2otel/pkg/logging"
+	"github.com/burnettdev/bods2otel/pkg/otel/logs"
+	"github.com/burnettdev/bods2otel/pkg/parser"
+	"github.com/burnettdev/bods2otel/pkg/types"
 
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
+	otellog "go.opentelemetry.io/otel/log"
 	"go.opentelemetry.io/otel/trace"
 )
 
 type Pipeline struct {
 	config     Config
 	bodsClient *bods.Client
-	lokiClient *loki.Client
 	parser     *parser.XMLParser
 	tracer     trace.Tracer
+	logger     otellog.Logger
 }
 
 type Config struct {
-	DryRun       bool
-	APIKey       string
-	DatasetID    string
-	LineRefs     []string
-	LokiURL      string
-	LokiUser     string
-	LokiPassword string
-	Interval     time.Duration
+	DryRun   bool
+	APIKey   string
+	DatasetID string
+	LineRefs  []string
+	Interval  time.Duration
 }
 
 func New(config Config) (*Pipeline, error) {
@@ -52,9 +50,9 @@ func New(config Config) (*Pipeline, error) {
 		tracer:     otel.Tracer("pipeline"),
 	}
 
-	// Only create Loki client if not in dry run mode
+	// Get OTel logger if not in dry run mode
 	if !config.DryRun {
-		pipeline.lokiClient = loki.NewClient(config.LokiURL, config.LokiUser, config.LokiPassword)
+		pipeline.logger = logs.GetLogger("pipeline")
 	}
 
 	return pipeline, nil
@@ -64,21 +62,24 @@ func (p *Pipeline) Run(ctx context.Context) error {
 	ticker := time.NewTicker(p.config.Interval)
 	defer ticker.Stop()
 
-	log.Printf("Pipeline started - polling every %v", p.config.Interval)
+	logging.InfoCtx(ctx, "Pipeline started", "interval", p.config.Interval)
 
 	// Process immediately on start
 	if err := p.processOnce(ctx); err != nil {
-		log.Printf("Error in initial processing: %v", err)
+		logging.ErrorCtx(ctx, "Error in initial processing", "error", err)
 	}
 
 	for {
 		select {
 		case <-ctx.Done():
-			log.Println("Pipeline stopped")
+			logging.DebugCtx(ctx, "Pipeline stopped")
 			return ctx.Err()
 		case <-ticker.C:
+			logging.DebugCtx(ctx, "Ticker fired - processing data")
 			if err := p.processOnce(ctx); err != nil {
-				log.Printf("Error processing: %v", err)
+				logging.ErrorCtx(ctx, "Error processing", "error", err)
+			} else {
+				logging.DebugCtx(ctx, "Data processing completed successfully")
 			}
 		}
 	}
@@ -146,7 +147,7 @@ func (p *Pipeline) processOnce(ctx context.Context) error {
 		result := <-results
 		if result.err != nil {
 			errors = append(errors, result.err)
-			log.Printf("Error processing line %s: %v", result.lineRef, result.err)
+			logging.ErrorCtx(ctx, "Error processing line", "line_ref", result.lineRef, "error", result.err)
 		} else {
 			allData = append(allData, result.data)
 			totalVehicles += len(result.data.VehicleData)
@@ -164,11 +165,11 @@ func (p *Pipeline) processOnce(ctx context.Context) error {
 	for _, data := range allData {
 		if p.config.DryRun {
 			if err := p.handleDryRun(ctx, data); err != nil {
-				log.Printf("Error in dry run for line %s: %v", data.LineRef, err)
+				logging.ErrorCtx(ctx, "Error in dry run", "line_ref", data.LineRef, "error", err)
 			}
 		} else {
-			if err := p.sendToLoki(ctx, data); err != nil {
-				log.Printf("Error sending to Loki for line %s: %v", data.LineRef, err)
+			if err := p.sendToOTel(ctx, data); err != nil {
+				logging.ErrorCtx(ctx, "Error sending to OTel", "line_ref", data.LineRef, "error", err)
 			}
 		}
 	}
@@ -202,12 +203,12 @@ func (p *Pipeline) handleDryRun(ctx context.Context, data *types.ParsedBusData) 
 		}
 	}
 
-	fmt.Println("\nIndividual Log Lines (as sent to Loki):")
+	fmt.Println("\nIndividual Log Lines (as sent to OTel):")
 	fmt.Println("----------------------------------------")
 
-	// Show individual log lines as they would be sent to Loki
+	// Show individual log lines as they would be sent to OTel
 	for i, vehicle := range data.VehicleData {
-		// Create individual vehicle log entry (same format as Loki client)
+		// Create individual vehicle log entry
 		vehicleLog := map[string]interface{}{
 			"timestamp":                      data.Timestamp,
 			"line_ref":                       data.LineRef,
@@ -224,7 +225,6 @@ func (p *Pipeline) handleDryRun(ctx context.Context, data *types.ParsedBusData) 
 			"latitude":                       vehicle.Latitude,
 			"recorded_at_time":               vehicle.RecordedAtTime,
 			"valid_until_time":               vehicle.ValidUntilTime,
-			"bus_image":                      vehicle.BusImage,
 		}
 
 		// Convert vehicle to JSON
@@ -246,26 +246,98 @@ func (p *Pipeline) handleDryRun(ctx context.Context, data *types.ParsedBusData) 
 	return nil
 }
 
-func (p *Pipeline) sendToLoki(ctx context.Context, data *types.ParsedBusData) error {
-	ctx, span := p.tracer.Start(ctx, "pipeline.send_to_loki")
+func (p *Pipeline) sendToOTel(ctx context.Context, data *types.ParsedBusData) error {
+	ctx, span := p.tracer.Start(ctx, "pipeline.send_to_otel")
 	defer span.End()
 
-	if p.lokiClient == nil {
-		err := fmt.Errorf("loki client not initialized")
-		span.RecordError(err)
-		return err
+	if p.logger == nil {
+		logging.WarnCtx(ctx, "OpenTelemetry logger not initialized, skipping log emission")
+		return nil
 	}
 
-	if err := p.lokiClient.SendBusData(ctx, data); err != nil {
-		span.RecordError(err)
-		return fmt.Errorf("failed to send data to Loki: %w", err)
+	// Parse timestamp
+	timestamp, err := time.Parse(time.RFC3339, data.Timestamp)
+	if err != nil {
+		// Fallback to current time if parsing fails
+		timestamp = time.Now()
 	}
 
-	log.Printf("Successfully sent %d individual vehicle log lines to Loki for line %s",
-		len(data.VehicleData), data.LineRef)
+	logsEmitted := 0
+
+	// Emit log records for each vehicle
+	for _, vehicle := range data.VehicleData {
+		// Marshal vehicle to JSON for the log body
+		vehicleJSON, err := json.Marshal(vehicle)
+		if err != nil {
+			span.RecordError(err)
+			logging.ErrorCtx(ctx, "Failed to marshal vehicle data", "error", err)
+			continue
+		}
+
+		// Build attributes for the log record
+		attrs := []otellog.KeyValue{
+			otellog.String("service", "bus-tracking"),
+			otellog.String("line_ref", data.LineRef),
+			otellog.String("vehicle_ref", vehicle.VehicleRef),
+			otellog.String("direction_ref", vehicle.DirectionRef),
+			otellog.String("operator_ref", vehicle.OperatorRef),
+		}
+
+		// Add optional fields as attributes
+		if vehicle.OriginRef != "" {
+			attrs = append(attrs, otellog.String("origin_ref", vehicle.OriginRef))
+		}
+		if vehicle.OriginName != "" {
+			attrs = append(attrs, otellog.String("origin_name", vehicle.OriginName))
+		}
+		if vehicle.DestinationRef != "" {
+			attrs = append(attrs, otellog.String("destination_ref", vehicle.DestinationRef))
+		}
+		if vehicle.DestinationName != "" {
+			attrs = append(attrs, otellog.String("destination_name", vehicle.DestinationName))
+		}
+		if vehicle.Latitude != 0 {
+			attrs = append(attrs, otellog.Float64("latitude", vehicle.Latitude))
+		}
+		if vehicle.Longitude != 0 {
+			attrs = append(attrs, otellog.Float64("longitude", vehicle.Longitude))
+		}
+		if vehicle.OriginAimedDepartureTime != "" {
+			attrs = append(attrs, otellog.String("origin_aimed_departure_time", vehicle.OriginAimedDepartureTime))
+		}
+		if vehicle.DestinationAimedArrivalTime != "" {
+			attrs = append(attrs, otellog.String("destination_aimed_arrival_time", vehicle.DestinationAimedArrivalTime))
+		}
+		if vehicle.RecordedAtTime != "" {
+			attrs = append(attrs, otellog.String("recorded_at_time", vehicle.RecordedAtTime))
+		}
+		if vehicle.ValidUntilTime != "" {
+			attrs = append(attrs, otellog.String("valid_until_time", vehicle.ValidUntilTime))
+		}
+
+		// Create log record with trace context
+		record := otellog.Record{}
+		record.SetTimestamp(timestamp)
+		record.SetSeverity(otellog.SeverityInfo)
+		record.SetBody(otellog.StringValue(string(vehicleJSON)))
+
+		// Add attributes to the record
+		record.AddAttributes(attrs...)
+
+		// Emit log record
+		p.logger.Emit(ctx, record)
+
+		logsEmitted++
+	}
+
+	logging.InfoCtx(ctx, "Successfully emitted vehicle log records to OTel",
+		"logs_emitted", logsEmitted,
+		"line_ref", data.LineRef,
+	)
 
 	span.SetAttributes(
-		attribute.Int("vehicles_sent", len(data.VehicleData)),
+		attribute.Int("vehicles_sent", logsEmitted),
+		attribute.Int("otel.logs_emitted", logsEmitted),
 	)
 
 	return nil

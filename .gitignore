@@ -11,7 +11,7 @@
 *.dll
 *.so
 *.dylib
-bods2loki
+bods2otel
 main
 
 # Go test binary, built with `go test -c`
@@ -48,8 +48,8 @@ Thumbs.db
 
 # Logs
 *.log
-logs/
-log/
+/logs/
+/log/
 
 # Temporary files
 *.tmp

@@ -19,7 +19,7 @@ func InitProfiling() (func(), error) {
 	serverAddress := getEnv("PYROSCOPE_SERVER_ADDRESS", "http://localhost:4040")
 
 	// Get application name
-	applicationName := getEnv("PYROSCOPE_APPLICATION_NAME", "bods2loki")
+	applicationName := getEnv("PYROSCOPE_APPLICATION_NAME", "bods2otel")
 
 	// Get basic auth credentials if provided
 	basicAuthUser := getEnv("PYROSCOPE_BASIC_AUTH_USER", "")
@@ -31,7 +31,7 @@ func InitProfiling() (func(), error) {
 		ServerAddress:   serverAddress,
 		Logger:          pyroscope.StandardLogger,
 		Tags: map[string]string{
-			"service": "bods2loki",
+			"service": "bods2otel",
 			"version": "1.0.0",
 		},
 	}

@@ -28,7 +28,7 @@ jobs:
 
 
     - name: Build Docker image
-      run: docker build -t burnettdev/bods2loki .
+      run: docker build -t burnettdev/bods2otel .
 
     - name: Run Snyk container test and generate SARIF
       continue-on-error: true
@@ -36,5 +36,5 @@ jobs:
         SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
         SNYK_API: https://api.eu.snyk.io
       run: |
-        snyk container test burnettdev/bods2loki \
+        snyk container test burnettdev/bods2otel \
           --file=Dockerfile \

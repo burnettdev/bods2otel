@@ -1,4 +1,4 @@
-package tracing
+package logs
 
 import (
 	"context"
@@ -6,20 +6,26 @@ import (
 	"os"
 	"runtime"
 	"strings"
+	"sync"
 
-	"go.opentelemetry.io/otel"
-	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
-	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp"
-	"go.opentelemetry.io/otel/propagation"
+	"go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploggrpc"
+	"go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploghttp"
+	otellog "go.opentelemetry.io/otel/log"
+	sdklog "go.opentelemetry.io/otel/sdk/log"
 	"go.opentelemetry.io/otel/sdk/resource"
-	"go.opentelemetry.io/otel/sdk/trace"
 	semconv "go.opentelemetry.io/otel/semconv/v1.21.0"
 )
 
-func InitTracing() (func(), error) {
-	// Check if tracing is enabled
-	if enabled := getEnv("OTEL_TRACING_ENABLED", "false"); !isTrue(enabled) {
-		log.Println("OpenTelemetry tracing is disabled")
+var (
+	globalLoggerProvider *sdklog.LoggerProvider
+	mu                   sync.RWMutex
+)
+
+// InitLogs initializes OpenTelemetry logging with support for both gRPC and HTTP protocols
+func InitLogs() (func(), error) {
+	// Check if logging is enabled
+	if enabled := getEnv("OTEL_LOGS_ENABLED", "true"); !isTrue(enabled) {
+		log.Println("OpenTelemetry logging is disabled")
 		return func() {}, nil
 	}
 
@@ -27,53 +33,54 @@ func InitTracing() (func(), error) {
 	endpoint := getOTLPEndpoint()
 
 	// Check if connection should be insecure (shared first, then signal-specific)
-	insecure := getEnvBool("OTEL_EXPORTER_OTLP_INSECURE", "OTEL_EXPORTER_OTLP_TRACES_INSECURE", true)
+	insecure := getEnvBool("OTEL_EXPORTER_OTLP_INSECURE", "OTEL_EXPORTER_OTLP_LOGS_INSECURE", true)
 
 	// Parse headers if provided (shared first, then signal-specific)
-	headers := parseHeaders(getEnvWithFallback("OTEL_EXPORTER_OTLP_HEADERS", "OTEL_EXPORTER_OTLP_TRACES_HEADERS", ""))
+	headers := parseHeaders(getEnvWithFallback("OTEL_EXPORTER_OTLP_HEADERS", "OTEL_EXPORTER_OTLP_LOGS_HEADERS", ""))
 
 	// Determine protocol (http or grpc) - shared first, then signal-specific
-	protocol := strings.ToLower(getEnvWithFallback("OTEL_EXPORTER_OTLP_PROTOCOL", "OTEL_EXPORTER_OTLP_TRACES_PROTOCOL", "http"))
+	protocol := strings.ToLower(getEnvWithFallback("OTEL_EXPORTER_OTLP_PROTOCOL", "OTEL_EXPORTER_OTLP_LOGS_PROTOCOL", "http"))
 	if protocol != "http" && protocol != "grpc" {
 		log.Printf("Invalid protocol %s, defaulting to http", protocol)
 		protocol = "http"
 	}
 
-	var exporter trace.SpanExporter
+	var exporter sdklog.Exporter
 	var err error
 
 	// Create exporter based on protocol
 	if protocol == "grpc" {
-		opts := []otlptracegrpc.Option{
-			otlptracegrpc.WithEndpoint(endpoint),
+		opts := []otlploggrpc.Option{
+			otlploggrpc.WithEndpoint(endpoint),
 		}
 
 		if insecure {
-			opts = append(opts, otlptracegrpc.WithInsecure())
+			opts = append(opts, otlploggrpc.WithInsecure())
 		}
 
 		if len(headers) > 0 {
-			opts = append(opts, otlptracegrpc.WithHeaders(headers))
+			opts = append(opts, otlploggrpc.WithHeaders(headers))
 		}
 
-		exporter, err = otlptracegrpc.New(context.Background(), opts...)
+		exporter, err = otlploggrpc.New(context.Background(), opts...)
 	} else {
-		opts := []otlptracehttp.Option{
-			otlptracehttp.WithEndpoint(endpoint),
+		opts := []otlploghttp.Option{
+			otlploghttp.WithEndpoint(endpoint),
 		}
 
 		if insecure {
-			opts = append(opts, otlptracehttp.WithInsecure())
+			opts = append(opts, otlploghttp.WithInsecure())
 		}
 
 		if len(headers) > 0 {
-			opts = append(opts, otlptracehttp.WithHeaders(headers))
+			opts = append(opts, otlploghttp.WithHeaders(headers))
 		}
 
-		exporter, err = otlptracehttp.New(context.Background(), opts...)
+		exporter, err = otlploghttp.New(context.Background(), opts...)
 	}
+
 	if err != nil {
-		log.Printf("Failed to create OTLP exporter, using noop: %v", err)
+		log.Printf("Failed to create OTLP log exporter, using noop: %v", err)
 		// Return a noop shutdown function if exporter creation fails
 		return func() {}, nil
 	}
@@ -101,23 +108,45 @@ func InitTracing() (func(), error) {
 		return nil, err
 	}
 
-	// Create trace provider
-	tp := trace.NewTracerProvider(
-		trace.WithBatcher(exporter),
-		trace.WithResource(res),
+	// Create batch processor
+	processor := sdklog.NewBatchProcessor(exporter)
+
+	// Create logger provider
+	lp := sdklog.NewLoggerProvider(
+		sdklog.WithProcessor(processor),
+		sdklog.WithResource(res),
 	)
 
-	// Set global trace provider
-	otel.SetTracerProvider(tp)
-	otel.SetTextMapPropagator(propagation.TraceContext{})
+	// Store logger provider globally
+	mu.Lock()
+	globalLoggerProvider = lp
+	mu.Unlock()
 
-	log.Printf("OpenTelemetry tracing initialized successfully (protocol: %s, endpoint: %s)", protocol, endpoint)
+	log.Printf("OpenTelemetry logging initialized successfully (protocol: %s, endpoint: %s)", protocol, endpoint)
 
 	return func() {
-		if err := tp.Shutdown(context.Background()); err != nil {
-			log.Printf("Error shutting down tracer provider: %v", err)
+		if err := lp.Shutdown(context.Background()); err != nil {
+			log.Printf("Error shutting down logger provider: %v", err)
 		}
 	}, nil
+}
+
+// GetLoggerProvider returns the global logger provider
+func GetLoggerProvider() *sdklog.LoggerProvider {
+	mu.RLock()
+	defer mu.RUnlock()
+	return globalLoggerProvider
+}
+
+// GetLogger returns a logger instance for the given name
+func GetLogger(name string) otellog.Logger {
+	mu.RLock()
+	defer mu.RUnlock()
+	if globalLoggerProvider == nil {
+		// Return nil logger if not initialized - caller should check
+		return nil
+	}
+	return globalLoggerProvider.Logger(name)
 }
 
 // getEnv returns the value of an environment variable or a default value if not set
@@ -142,8 +171,8 @@ func getOTLPEndpoint() string {
 		return cleanEndpoint(endpoint)
 	}
 
-	// Fall back to traces-specific endpoint if shared is not set
-	if endpoint := getEnv("OTEL_EXPORTER_OTLP_TRACES_ENDPOINT", ""); endpoint != "" {
+	// Fall back to logs-specific endpoint if shared is not set
+	if endpoint := getEnv("OTEL_EXPORTER_OTLP_LOGS_ENDPOINT", ""); endpoint != "" {
 		return cleanEndpoint(endpoint)
 	}
 
@@ -156,12 +185,10 @@ func cleanEndpoint(endpoint string) string {
 	// Remove http:// or https:// prefix if present
 	endpoint = strings.TrimPrefix(endpoint, "http://")
 	endpoint = strings.TrimPrefix(endpoint, "https://")
-	// Remove grpc:// prefix if present
-	endpoint = strings.TrimPrefix(endpoint, "grpc://")
 
-	// Remove /v1/traces suffix if present since WithEndpoint handles the path separately
-	if strings.HasSuffix(endpoint, "/v1/traces") {
-		endpoint = strings.TrimSuffix(endpoint, "/v1/traces")
+	// Remove /v1/logs suffix if present since WithEndpoint handles the path separately
+	if strings.HasSuffix(endpoint, "/v1/logs") {
+		endpoint = strings.TrimSuffix(endpoint, "/v1/logs")
 	}
 
 	// Remove any trailing slashes
