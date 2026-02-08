@@ -6,11 +6,11 @@ import (
 	"fmt"
 	"time"
 
-	"bods2otel/pkg/bods"
-	"bods2otel/pkg/logging"
-	"bods2otel/pkg/otel/logs"
-	"bods2otel/pkg/parser"
-	"bods2otel/pkg/types"
+	"github.com/burnettdev/bods2otel/pkg/bods"
+	"github.com/burnettdev/bods2otel/pkg/logging"
+	"github.com/burnettdev/bods2otel/pkg/otel/logs"
+	"github.com/burnettdev/bods2otel/pkg/parser"
+	"github.com/burnettdev/bods2otel/pkg/types"
 
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"

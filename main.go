@@ -10,11 +10,11 @@ import (
 	"syscall"
 	"time"
 
-	"bods2otel/pkg/logging"
-	"bods2otel/pkg/otel/logs"
-	"bods2otel/pkg/pipeline"
-	"bods2otel/pkg/profiling"
-	"bods2otel/pkg/tracing"
+	"github.com/burnettdev/bods2otel/pkg/logging"
+	"github.com/burnettdev/bods2otel/pkg/otel/logs"
+	"github.com/burnettdev/bods2otel/pkg/pipeline"
+	"github.com/burnettdev/bods2otel/pkg/profiling"
+	"github.com/burnettdev/bods2otel/pkg/tracing"
 )
 
 func main() {

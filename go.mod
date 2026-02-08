@@ -1,4 +1,4 @@
-module bods2otel
+module github.com/burnettdev/bods2otel
 
 go 1.23.0
 
