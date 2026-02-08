@@ -230,7 +230,7 @@ Feel free to open issues or submit pull requests!
 
 ## License
 
-MIT License - feel free to use this project for whatever you'd like!
+MIT License - feel free to use this project for whatever you'd like! Happy Bus Tracking
 
 ## Migration from Loki
 
