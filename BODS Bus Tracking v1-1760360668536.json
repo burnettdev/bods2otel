@@ -337,7 +337,7 @@
           "showLineNumbers": false,
           "showMiniMap": false
         },
-        "content": "🚌 **Brizzle Bus Tracker Overview**\n\nAlright, me babber! This dashboard keeps tabs on Bristol’s buses in real time, streaming live location data into Grafana Cloud Logs via [bods2loki](https://github.com/burnettdev/bods2loki) and visualising it on a GeoMap panel.\n\nEach bus’s latest position is plotted so you can spot who’s trundlin’ up **Staple Hill**, cruisin’ through **Emersons Green**, or waitin’ in traffic by the Centre.\n\n🚏 **Active buses** are the ones still on the move — if they’ve pinged in the last few minutes, they’ll show up in counts and maps.\n\nKeep an eye out for bunchin’, stoppin’, and the eternal mystery of where your number 49x’s got to — all updated quicker than you can say *“cheers, drive!”*\n",
+        "content": "🚌 **Brizzle Bus Tracker Overview**\n\nAlright, me babber! This dashboard keeps tabs on Bristol’s buses in real time, streaming live location data into Grafana Cloud Logs via [bods2otel](https://github.com/burnettdev/bods2otel) and visualising it on a GeoMap panel.\n\nEach bus’s latest position is plotted so you can spot who’s trundlin’ up **Staple Hill**, cruisin’ through **Emersons Green**, or waitin’ in traffic by the Centre.\n\n🚏 **Active buses** are the ones still on the move — if they’ve pinged in the last few minutes, they’ll show up in counts and maps.\n\nKeep an eye out for bunchin’, stoppin’, and the eternal mystery of where your number 49x’s got to — all updated quicker than you can say *“cheers, drive!”*\n",
         "mode": "markdown"
       },
       "pluginVersion": "12.4.0-21710221776",
