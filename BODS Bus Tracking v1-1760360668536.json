@@ -1,8 +1,8 @@
 {
   "__inputs": [
     {
-      "name": "DS_GRAFANACLOUD-ELFORDO-LOGS",
-      "label": "grafanacloud-elfordo-logs",
+      "name": "DS_GRAFANACLOUD-LOGS",
+      "label": "grafanacloud-logs",
       "description": "",
       "type": "datasource",
       "pluginId": "loki",
@@ -21,19 +21,13 @@
       "type": "grafana",
       "id": "grafana",
       "name": "Grafana",
-      "version": "12.3.0-18462628762"
+      "version": "12.4.0-21710221776"
     },
     {
       "type": "datasource",
       "id": "loki",
       "name": "Loki",
-      "version": "12.3.0-18462628762"
-    },
-    {
-      "type": "panel",
-      "id": "stat",
-      "name": "Stat",
-      "version": ""
+      "version": "12.4.0-21710221776"
     },
     {
       "type": "panel",
@@ -72,7 +66,7 @@
     {
       "datasource": {
         "type": "loki",
-        "uid": "${DS_GRAFANACLOUD-ELFORDO-LOGS}"
+        "uid": "${DS_GRAFANACLOUD-LOGS}"
       },
       "fieldConfig": {
         "defaults": {
@@ -129,13 +123,43 @@
         "layers": [
           {
             "config": {
-              "border": 3,
-              "color": "rgb(200, 200, 200)",
-              "crop": false,
-              "kind": "anchored",
-              "radius": 30,
-              "shadow": false,
-              "src": "bus_image (last)"
+              "showLegend": false,
+              "style": {
+                "color": {
+                  "fixed": "dark-green"
+                },
+                "opacity": 1,
+                "rotation": {
+                  "fixed": 0,
+                  "max": 360,
+                  "min": -360,
+                  "mode": "mod"
+                },
+                "size": {
+                  "fixed": 5,
+                  "max": 15,
+                  "min": 2
+                },
+                "symbol": {
+                  "fixed": "img/icons/marker/circle.svg",
+                  "mode": "fixed"
+                },
+                "symbolAlign": {
+                  "horizontal": "center",
+                  "vertical": "center"
+                },
+                "textConfig": {
+                  "fontSize": 12,
+                  "offsetX": 0,
+                  "offsetY": 0,
+                  "textAlign": "center",
+                  "textBaseline": "middle"
+                }
+              }
+            },
+            "filterData": {
+              "id": "byRefId",
+              "options": "A"
             },
             "layer-tooltip": true,
             "location": {
@@ -145,7 +169,7 @@
             },
             "name": "Layer 1",
             "tooltip": true,
-            "type": "photos"
+            "type": "markers"
           }
         ],
         "tooltip": {
@@ -160,16 +184,16 @@
           "zoom": 12.86
         }
       },
-      "pluginVersion": "12.3.0-18462628762",
+      "pluginVersion": "12.4.0-21710221776",
       "targets": [
         {
           "datasource": {
             "type": "loki",
-            "uid": "${DS_GRAFANACLOUD-ELFORDO-LOGS}"
+            "uid": "${DS_GRAFANACLOUD-LOGS}"
           },
           "direction": "backward",
           "editorMode": "builder",
-          "expr": "{job=\"bods2loki\", line_ref=~\"$lineRef\"}",
+          "expr": "{service_name=\"bods2otel\"}",
           "queryType": "range",
           "refId": "A"
         }
@@ -316,15 +340,14 @@
         "content": "🚌 **Brizzle Bus Tracker Overview**\n\nAlright, me babber! This dashboard keeps tabs on Bristol’s buses in real time, streaming live location data into Grafana Cloud Logs via [bods2loki](https://github.com/burnettdev/bods2loki) and visualising it on a GeoMap panel.\n\nEach bus’s latest position is plotted so you can spot who’s trundlin’ up **Staple Hill**, cruisin’ through **Emersons Green**, or waitin’ in traffic by the Centre.\n\n🚏 **Active buses** are the ones still on the move — if they’ve pinged in the last few minutes, they’ll show up in counts and maps.\n\nKeep an eye out for bunchin’, stoppin’, and the eternal mystery of where your number 49x’s got to — all updated quicker than you can say *“cheers, drive!”*\n",
         "mode": "markdown"
       },
-      "pluginVersion": "12.3.0-18462628762",
+      "pluginVersion": "12.4.0-21710221776",
       "type": "text"
     },
     {
       "datasource": {
         "type": "loki",
-        "uid": "${DS_GRAFANACLOUD-ELFORDO-LOGS}"
+        "uid": "${DS_GRAFANACLOUD-LOGS}"
       },
-      "description": "",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -447,16 +470,16 @@
           }
         ]
       },
-      "pluginVersion": "12.3.0-18462628762",
+      "pluginVersion": "12.4.0-21710221776",
       "targets": [
         {
           "datasource": {
             "type": "loki",
-            "uid": "${DS_GRAFANACLOUD-ELFORDO-LOGS}"
+            "uid": "${DS_GRAFANACLOUD-LOGS}"
           },
           "direction": "backward",
           "editorMode": "code",
-          "expr": "{job=\"bods2loki\", line_ref=~\"$lineRef\"} |= `` | json",
+          "expr": "{service_name=\"bods2otel\"} |= `` | json",
           "queryType": "range",
           "refId": "A"
         }
@@ -581,108 +604,14 @@
         }
       ],
       "type": "table"
-    },
-    {
-      "datasource": {
-        "type": "loki",
-        "uid": "${DS_GRAFANACLOUD-ELFORDO-LOGS}"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "thresholds"
-          },
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": 0
-              },
-              {
-                "color": "red",
-                "value": 80
-              }
-            ]
-          }
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 10,
-        "w": 24,
-        "x": 0,
-        "y": 18
-      },
-      "id": 5,
-      "maxPerRow": 8,
-      "options": {
-        "colorMode": "background",
-        "graphMode": "area",
-        "justifyMode": "auto",
-        "orientation": "horizontal",
-        "percentChangeColorMode": "standard",
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "showPercentChange": false,
-        "textMode": "auto",
-        "wideLayout": true
-      },
-      "pluginVersion": "12.3.0-18462628762",
-      "repeat": "lineRef",
-      "repeatDirection": "h",
-      "targets": [
-        {
-          "datasource": {
-            "type": "loki",
-            "uid": "${DS_GRAFANACLOUD-ELFORDO-LOGS}"
-          },
-          "direction": "backward",
-          "editorMode": "code",
-          "expr": "count_over_time({service=\"bus-tracking\", line_ref=\"$lineRef\"}[$__auto])",
-          "queryType": "range",
-          "refId": "A"
-        }
-      ],
-      "title": "Active Buses on Route: $lineRef",
-      "type": "stat"
     }
   ],
+  "preload": false,
   "refresh": "30s",
   "schemaVersion": 42,
   "tags": [],
   "templating": {
-    "list": [
-      {
-        "allowCustomValue": false,
-        "current": {},
-        "datasource": {
-          "type": "loki",
-          "uid": "${DS_GRAFANACLOUD-ELFORDO-LOGS}"
-        },
-        "definition": "",
-        "includeAll": true,
-        "label": "Bus Service",
-        "multi": true,
-        "name": "lineRef",
-        "options": [],
-        "query": {
-          "label": "line_ref",
-          "refId": "LokiVariableQueryEditor-VariableQuery",
-          "stream": "",
-          "type": 1
-        },
-        "refresh": 1,
-        "regex": "",
-        "type": "query"
-      }
-    ]
+    "list": []
   },
   "time": {
     "from": "now-5m",
@@ -692,7 +621,7 @@
   "timezone": "browser",
   "title": "BODS Bus Tracking v1",
   "uid": "bu4wgjc",
-  "version": 13,
+  "version": 15,
   "weekStart": "",
   "id": null
 }
