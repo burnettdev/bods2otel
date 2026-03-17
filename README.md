@@ -7,10 +7,6 @@
 - BODS API key (get from [data.bus-data.dft.gov.uk](https://data.bus-data.dft.gov.uk))
 - OpenTelemetry-compatible backend
 
-## Demo
-
-A live demo showing some Bristol bus routes can be found [here.](https://elfordo.grafana.net/public-dashboards/2c542d2643314f34b82fcf7942787443)
-
 ## Configuration
 
 Create a `.env` file in the project root with the following variables:
