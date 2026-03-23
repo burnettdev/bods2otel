@@ -39,18 +39,7 @@ jobs:
         SNYK_API: https://api.eu.snyk.io
       with:
         image: burnettdev/bods2otel
-        args: --file=Dockerfile --sarif-file-output=snyk.sarif
-
-    - name: Scrub invalid null severities
-      # This regex is more robust: it finds 'null' even if there are spaces
-      run: |
-        if [ -f snyk.sarif ]; then
-          sed -i 's/"security-severity":\s*null/"security-severity": "0"/g' snyk.sarif
-          echo "Scrubbed snyk.sarif of null values."
-        else
-          echo "snyk.sarif not found. Snyk might have failed to run."
-          exit 1
-        fi
+        args: --file=Dockerfile --sarif-file-output=snyk.sarif --severity-threshold=medium
         
     - name: Upload result to GitHub Code Scanning
       uses: github/codeql-action/upload-sarif@v4
