@@ -41,12 +41,15 @@ jobs:
         image: burnettdev/bods2otel
         args: --file=Dockerfile --sarif-file-output=snyk.sarif
 
-    - name: Fix SARIF severity nulls
+    - name: Scrub invalid null severities
+      # This regex is more robust: it finds 'null' even if there are spaces
       run: |
         if [ -f snyk.sarif ]; then
-          sed -i 's/"security-severity": null/"security-severity": "0"/g' snyk.sarif
+          sed -i 's/"security-severity":\s*null/"security-severity": "0"/g' snyk.sarif
+          echo "Scrubbed snyk.sarif of null values."
         else
-          echo "SARIF file not found"
+          echo "snyk.sarif not found. Snyk might have failed to run."
+          exit 1
         fi
         
     - name: Upload result to GitHub Code Scanning
